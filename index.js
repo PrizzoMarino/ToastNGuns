@@ -6,6 +6,8 @@ let bulletCount = Infinity;
 let canShoot = true;
 let killCount = 0;
 let lvl = 0;
+let maxHP = 3;
+
 
 function map1() {
     const wall = add([
@@ -18,13 +20,14 @@ function map1() {
         "Wall"
     ]);
 
-    add([
+    const floor = add([
         rect(width(), 48),
-        pos(0, height() - 48),
+        pos(0, height()),
         outline(4),
         area(),
         body({ isStatic: true }),
         color(127, 200, 255),
+        "Floor"
     ]);
 }
 
@@ -44,6 +47,7 @@ const showKills = add([
     text("Kills: " + killCount),
     pos(24, 24),
     { value: 0 },
+    fixed(),
 ])
 
 const kat = add([
@@ -51,7 +55,7 @@ const kat = add([
     pos(100, 30),
     area(),
     body(),
-    health(3),
+    health(maxHP),
     state("grounded", ["grounded", "jump", "spinjump"]),
 ]);
 
@@ -62,25 +66,87 @@ const kat2 = add([
     body(),
     scale(3),
     health(3),
-    "Monster"
+    "Monster",
+    {
+        add() {
+            this.on("death", () => { destroy(this); });
+            this.on("hurt", () => {
+                debug.log("oof");
+                tween(RED, WHITE, 0.15, (p) => kat2.color = p);
+            });
+            this.onCollide("bullet", () => {
+                this.hp--;
+            });
+            this.onCollide("3dmg", () => {
+                this.hp = this.hp - 3;
+                debug.log(this.hp);
+            });
+            this.onCollide("rpg", () => {
+                this.hp = this.hp - 5;
+            });
+            this.onCollideUpdate("shotgunBullet", () => {
+                this.hp--;
+            });
+        }
+    }
 ]);
 
-const allMonsters = get("Monster").length;
+const kat3 = add([
+    sprite("kat"),
+    pos(400, 30),
+    area(),
+    body(),
+    scale(3),
+    health(3),
+    "Monster",
+    "flying",
+    {
+        add() {
+            this.on("death", () => {
+                destroy(this);
+                let rnHealth = Math.floor(1);
+                if (rnHealth === 1) {
+                    const HealthPickup = add([
+                        rect(50, 50),
+                        pos(this.pos.x, (this.pos.y + 100)),
+                        area(),
+                        outline(4),
+                        color(255, 0, 0),
+                        body({ isStatic: true }),
+                        "healthPickup"
+                    ]);
 
-kat2.on("hurt", () => {
-    debug.log("oof");
-})
+                }
+            });
+            this.on("hurt", () => {
+                debug.log("oof");
+                tween(RED, WHITE, 0.15, (p) => kat3.color = p);
+            });
+            this.onCollide("bullet", () => {
+                this.hp--;
+            });
+            this.onCollide("3dmg", () => {
+                this.hp = this.hp - 3;
+            });
+            this.onCollide("rpg", () => {
+                this.hp = this.hp - 5;
+            });
+            this.onCollideUpdate("shotgunBullet", () => {
+                this.hp--;
+            });
+        }
+    }
+]);
 
-debug.log(allMonsters);
+let allMonsters = get("Monster").length;
 
-kat2.on("death", () => {
-    debug.log("ded");
-    killCount++;
-    destroy(kat2);
-})
+debug.log("there are " + allMonsters + " Monsters alive.");
 
 onDestroy("Monster", () => {
     debug.log("aaa");
+    killCount++;
+    allMonsters--;
+
 })
 
 onKeyDown("a", () => {
@@ -94,9 +160,9 @@ onKeyDown("d", () => {
 })
 
 kat.onStateUpdate("spinjump", () => {
-    if (kat.getCollisions().some(c => c.source.is("Monster") || c.target.is("Monster"))) {
-        debug.log("hit");
-        kat2.hp -= 1;
+    const monsters = get("Monster", { recursive: true }).filter(m => kat.isColliding(m));
+    monsters.forEach(m => m.hp -= 1);
+    if (monsters.length > 0) {
         kat.jump();
     }
 });
@@ -127,7 +193,12 @@ onUpdate(() => {
         lvl = 1;
         debug.log("Level up! Level " + lvl);
     }
+
+    setCamPos(425, kat.pos.y);
+
 })
+
+
 
 onKeyPress("space", () => {
     if (kat.isGrounded()) {
@@ -233,30 +304,28 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "bullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(15, 0)
             })
 
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
-            })
+
         } else if (looking === "left") {
             const bullet = add([
                 circle(5),
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "bullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
 
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
-            })
+
         };
 
     } else if (gun == "Machine Gun") {
@@ -266,15 +335,14 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "bullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(15, 0);
             })
 
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
-            })
+
 
         } else if (looking === "left") {
             const bullet = add([
@@ -282,15 +350,14 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "bullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
 
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
-            })
+
 
         }
     } else if (gun == "Shotgun") {
@@ -300,15 +367,14 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "shotgunBullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(15, 0);
             })
 
-            bullet.onCollideUpdate("Monster", () => {
-                kat2.hp -= 1;
-            })
+
 
         } else if (looking === "left") {
             const bullet = add([
@@ -316,14 +382,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "shotgunBullet"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
-            })
-
-            bullet.onCollideUpdate("Monster", () => {
-                kat2.hp -= 1;
             })
 
         }
@@ -334,14 +397,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "3dmg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(15, 0);
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
             })
 
         } else if (looking === "left") {
@@ -350,14 +410,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "3dmg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 1;
             })
 
         }
@@ -368,14 +425,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "3dmg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(20, 0);
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 3;
             })
 
         } else if (looking === "left") {
@@ -384,14 +438,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "3dmg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 3;
             })
 
         }
@@ -402,14 +453,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(0, 0),
+                "rpg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(12, 0);
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 5;
             })
 
         } else if (looking === "left") {
@@ -418,14 +466,11 @@ function spawnBullet() {
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
+                "rpg"
             ])
 
             bullet.onUpdate(() => {
                 bullet.moveBy(12, 0)
-            })
-
-            bullet.onCollide("Monster", () => {
-                kat2.hp -= 5;
             })
 
         }
@@ -435,7 +480,6 @@ function spawnBullet() {
 kat.onCollideUpdate("Wall", () => {
     if (!kat.isGrounded()) {
         AirJumpCount = 1;
-        debug.log(AirJumpCount);
     }
 });
 
@@ -465,6 +509,21 @@ kat.onCollide("gPower", (gPower) => {
 
 
     destroy(gPower);
+})
+
+
+kat.onCollide("healthPickup", (healthPickup) => {
+    debug.log("hi");
+    if (kat.hp < maxHP) {
+        kat.hp++;
+        destroy(healthPickup);
+        debug.log(kat.hp);
+    }
+});
+
+onKeyPress("h", () => {
+    kat.hp--;
+    debug.log(kat.hp);
 })
 
 
