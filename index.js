@@ -1,4 +1,3 @@
-kaplay();
 let AirJumpCount = 1;
 let gun = "default";
 let looking = "right";
@@ -7,12 +6,29 @@ let canShoot = true;
 let killCount = 0;
 let lvl = 0;
 let maxHP = 3;
+let showAmmo = null;
+
+let mg = RED;
+let sniper = YELLOW;
+let whip = BLUE;
+let shotgun = GREEN;
+let rpg = WHITE;
 
 
 function map1() {
     const wall = add([
         rect(50, 1000),
-        pos(0),
+        pos(0, -100),
+        area(),
+        outline(4),
+        color(127, 200, 255),
+        body({ isStatic: true }),
+        "Wall"
+    ]);
+
+    const wall2 = add([
+        rect(50, 1000),
+        pos(900, -100),
         area(),
         outline(4),
         color(127, 200, 255),
@@ -28,6 +44,60 @@ function map1() {
         body({ isStatic: true }),
         color(127, 200, 255),
         "Floor"
+    ]);
+
+    const lightFloor = add([
+        rect(width(), 48),
+        pos(0, height() - 200),
+        outline(4),
+        area(),
+        body({ isStatic: true }),
+        color(127, 200, 255),
+        "lightFloor"
+    ]);
+
+    const chest = add([
+        rect(60, 60),
+        pos(600, (height() - 60)),
+        outline(4),
+        area(),
+        health(5),
+        body({ isStatic: true }),
+        color(BLUE),
+        "Floor",
+        {
+            add() {
+                this.on("death", () => {
+                    destroy(this);
+                    const powerup = add([
+                        rect(50, 50),
+                        pos(this.pos.x, this.pos.y),
+                        area(),
+                        outline(4),
+                        color(127, 200, 255),
+                        body({ isStatic: true }),
+                        "gPower"
+                    ])
+                });
+                this.on("hurt", () => {
+                    debug.log("oof");
+                    tween(WHITE, BLUE, 0.15, (p) => this.color = p);
+                });
+                this.onCollide("bullet", () => {
+                    this.hp--;
+                });
+                this.onCollide("3dmg", () => {
+                    this.hp = this.hp - 3;
+                    debug.log(this.hp);
+                });
+                this.onCollide("rpg", () => {
+                    this.hp = this.hp - 5;
+                });
+                this.onCollideUpdate("shotgunBullet", () => {
+                    this.hp--;
+                });
+            }
+        }
     ]);
 }
 
@@ -51,8 +121,8 @@ const showKills = add([
 ])
 
 const kat = add([
-    sprite("kat"),
-    pos(100, 30),
+    sprite("BreadToasterDefault"),
+    pos(100, 750),
     area(),
     body(),
     health(maxHP),
@@ -61,11 +131,16 @@ const kat = add([
 
 const kat2 = add([
     sprite("kat"),
-    pos(200, 30),
+    pos(rand(700), 594),
     area(),
     body(),
-    scale(3),
     health(3),
+    patrol({
+        waypoints: [
+            vec2(800, 594),
+            vec2(0, 594)
+        ],
+    }),
     "Monster",
     {
         add() {
@@ -93,10 +168,9 @@ const kat2 = add([
 
 const kat3 = add([
     sprite("kat"),
-    pos(400, 30),
+    pos(400, 594),
     area(),
     body(),
-    scale(3),
     health(3),
     "Monster",
     "flying",
@@ -104,18 +178,18 @@ const kat3 = add([
         add() {
             this.on("death", () => {
                 destroy(this);
-                let rnHealth = Math.floor(1);
-                if (rnHealth === 1) {
+                let rnHealth = Math.floor(rand(10));
+                debug.log(rnHealth);
+                if (rnHealth < 2) {
                     const HealthPickup = add([
                         rect(50, 50),
                         pos(this.pos.x, (this.pos.y + 100)),
                         area(),
                         outline(4),
                         color(255, 0, 0),
-                        body({ isStatic: true }),
+                        body(),
                         "healthPickup"
                     ]);
-
                 }
             });
             this.on("hurt", () => {
@@ -211,6 +285,12 @@ onKeyPress("space", () => {
         }
     }
 
+});
+
+kat.onBeforePhysicsResolve((collision) => {
+    if (collision.target.is("lightFloor") && kat.isJumping() && !kat.isGrounded()) {
+        collision.preventResolution();
+    }
 });
 
 onMouseDown(() => {
@@ -312,6 +392,7 @@ function spawnBullet() {
             })
 
 
+
         } else if (looking === "left") {
             const bullet = add([
                 circle(5),
@@ -324,7 +405,6 @@ function spawnBullet() {
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
-
 
         };
 
@@ -342,7 +422,7 @@ function spawnBullet() {
                 bullet.moveBy(15, 0);
             })
 
-
+            showAmmo.text = "";
 
         } else if (looking === "left") {
             const bullet = add([
@@ -357,13 +437,13 @@ function spawnBullet() {
                 bullet.moveBy(5, 0)
             })
 
-
+            showAmmo.text = bulletCount;
 
         }
     } else if (gun == "Shotgun") {
         if (looking === "right") {
             const bullet = add([
-                circle(20),
+                circle(50),
                 pos(kat.pos),
                 area(),
                 move(0, 0),
@@ -372,13 +452,15 @@ function spawnBullet() {
 
             bullet.onUpdate(() => {
                 bullet.moveBy(15, 0);
+
             })
 
+            showAmmo.text = bulletCount;
 
 
         } else if (looking === "left") {
             const bullet = add([
-                circle(20),
+                circle(50),
                 pos(kat.pos),
                 area(),
                 move(180, 1200),
@@ -388,6 +470,8 @@ function spawnBullet() {
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
+
+            showAmmo.text = bulletCount;
 
         }
     } else if (gun == "Electrical Whip") {
@@ -404,6 +488,8 @@ function spawnBullet() {
                 bullet.moveBy(15, 0);
             })
 
+            showAmmo.text = bulletCount;
+
         } else if (looking === "left") {
             const bullet = add([
                 circle(20),
@@ -416,6 +502,8 @@ function spawnBullet() {
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
+
+            showAmmo.text = bulletCount;
 
         }
     } else if (gun == "Sniper") {
@@ -432,6 +520,8 @@ function spawnBullet() {
                 bullet.moveBy(20, 0);
             })
 
+            showAmmo.text = bulletCount;
+
         } else if (looking === "left") {
             const bullet = add([
                 circle(5),
@@ -444,6 +534,8 @@ function spawnBullet() {
             bullet.onUpdate(() => {
                 bullet.moveBy(5, 0)
             })
+
+            showAmmo.text = bulletCount;
 
         }
     } else if (gun == "RPG") {
@@ -460,6 +552,8 @@ function spawnBullet() {
                 bullet.moveBy(12, 0);
             })
 
+            showAmmo.text = bulletCount;
+
         } else if (looking === "left") {
             const bullet = add([
                 circle(30),
@@ -472,6 +566,8 @@ function spawnBullet() {
             bullet.onUpdate(() => {
                 bullet.moveBy(12, 0)
             })
+
+            showAmmo.text = bulletCount;
 
         }
     }
@@ -488,7 +584,6 @@ kat.onCollide("gPower", (gPower) => {
     if (rn === 0) {
         gun = "Machine Gun";
         bulletCount = 20;
-        debug.log(gun);
     } else if (rn === 1) {
         gun = "Shotgun";
         bulletCount = 10;
@@ -505,6 +600,17 @@ kat.onCollide("gPower", (gPower) => {
         gun = "RPG";
         bulletCount = 10;
         debug.log(gun);
+    }
+
+    if (showAmmo === null) {
+        showAmmo = add([
+            text(bulletCount),
+            pos(24, 72),
+            { value: 0 },
+            fixed(),
+        ])
+    } else {
+        showAmmo.text = bulletCount;
     }
 
 

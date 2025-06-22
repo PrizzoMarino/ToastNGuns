@@ -1,0 +1,1 @@
+loadSprite("kat", "bean.png");
